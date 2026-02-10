@@ -38,21 +38,18 @@ func main() {
 	// Health endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, _ = w.Write([]byte("ok"))
 	})
 
-	// Register auth routes
+	// Register auth routes (Resend mail config)
 	mailConfig := auth.MailConfig{
-		Host: cfg.SMTPHost,
-		Port: cfg.SMTPPort,
-		User: cfg.SMTPUser,
-		Pass: cfg.SMTPPass,
-		From: cfg.SMTPFrom,
+		APIKey: cfg.ResendAPIKey,
+		From:   cfg.EmailFrom,
 	}
 	auth.RegisterRoutes(mux, pool, cfg.JWTSecret, cfg.AppDeeplinkURL, mailConfig)
 
-	// Create server
-	addr := fmt.Sprintf(":%d", cfg.Port)
+	// Create server (Render provides PORT as string)
+	addr := fmt.Sprintf(":%s", cfg.Port)
 	server := &http.Server{
 		Addr:         addr,
 		Handler:      mux,
