@@ -9,8 +9,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const maxFeedbackLength = 5000 // Reasonable limit for feedback messages
-
 type Service struct {
 	repo        *Repository
 	slackClient SlackClient
@@ -23,20 +21,11 @@ func NewService(repo *Repository, slackClient SlackClient) *Service {
 	}
 }
 
-// CreateFeedback validates and stores feedback, then publishes to Slack.
-// Slack failures are logged but do not fail the request.
 func (s *Service) CreateFeedback(ctx context.Context, userID uuid.UUID, userEmail, message string) (*Feedback, error) {
-	// Normalize message
 	normalizedMessage := strings.TrimSpace(message)
 
-	// Validate: reject empty messages
 	if normalizedMessage == "" {
 		return nil, fmt.Errorf("message_required")
-	}
-
-	// Validate: enforce max length
-	if len(normalizedMessage) > maxFeedbackLength {
-		return nil, fmt.Errorf("message_too_long")
 	}
 
 	// Persist feedback (DB is source of truth)
