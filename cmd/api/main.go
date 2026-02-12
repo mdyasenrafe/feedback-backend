@@ -13,6 +13,7 @@ import (
 	"feedback/internal/config"
 	"feedback/internal/db"
 	"feedback/internal/modules/auth"
+	"feedback/internal/modules/feedback"
 )
 
 func main() {
@@ -47,6 +48,9 @@ func main() {
 		From:   cfg.EmailFrom,
 	}
 	auth.RegisterRoutes(mux, pool, cfg.JWTSecret, cfg.AppDeeplinkURL, mailConfig)
+
+	// Register feedback routes
+	feedback.RegisterRoutes(mux, pool, cfg.JWTSecret)
 
 	// Create server (Render provides PORT as string)
 	addr := fmt.Sprintf(":%s", cfg.Port)
