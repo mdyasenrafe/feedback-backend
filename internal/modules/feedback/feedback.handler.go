@@ -2,6 +2,7 @@ package feedback
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -49,8 +50,11 @@ func (h *Handler) HandleCreateFeedback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create feedback
-	feedback, err := h.service.CreateFeedback(r.Context(), userID, userEmail, req.Message)
+	created, err := h.service.CreateFeedback(r.Context(), userID, userEmail, req.Message)
 	if err != nil {
+		// IMPORTANT: log real error so we can debug
+		log.Printf("CreateFeedback failed: %v", err)
+
 		// Check for validation errors
 		if strings.Contains(err.Error(), "message_required") {
 			httpx.WriteError(w, http.StatusBadRequest, "message_required")
@@ -60,11 +64,12 @@ func (h *Handler) HandleCreateFeedback(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, http.StatusBadRequest, "message_too_long")
 			return
 		}
+
 		// Generic error
 		httpx.WriteError(w, http.StatusInternalServerError, "internal_error")
 		return
 	}
 
 	// Return created feedback
-	httpx.WriteJSON(w, http.StatusCreated, feedback)
+	httpx.WriteJSON(w, http.StatusCreated, created)
 }
