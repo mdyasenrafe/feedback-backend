@@ -14,4 +14,5 @@ func RegisterRoutes(mux *http.ServeMux, pool *pgxpool.Pool, jwtSecret, deeplinkU
 
 	mux.HandleFunc("/auth/login-link", handler.HandleRequestLoginLink)
 	mux.HandleFunc("/auth/login-link/verify", handler.HandleVerifyLoginLink)
+	mux.HandleFunc("/auth/deeplink", handler.HandleDeeplink)
 }
