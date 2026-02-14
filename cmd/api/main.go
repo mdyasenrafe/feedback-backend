@@ -42,10 +42,12 @@ func main() {
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	// Register auth routes (Resend mail config)
+	// Register auth routes (Mailgun mail config)
 	mailConfig := auth.MailConfig{
-		APIKey: cfg.ResendAPIKey,
-		From:   cfg.EmailFrom,
+		APIKey:  cfg.MailgunAPIKey,
+		Domain:  cfg.MailgunDomain,
+		BaseURL: cfg.MailgunBaseURL,
+		From:    cfg.EmailFrom,
 	}
 	auth.RegisterRoutes(mux, pool, cfg.JWTSecret, cfg.AppDeeplinkURL, mailConfig)
 
