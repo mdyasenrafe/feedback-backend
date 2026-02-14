@@ -2,28 +2,40 @@ package auth
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
-
-	"github.com/resend/resend-go/v2"
 )
 
+// MailConfig is used by SendLoginLink (Mailgun).
+// NOTE: This replaces the previous Resend-only config.
 type MailConfig struct {
-	APIKey string
-	From   string
+	APIKey  string // MAILGUN_API_KEY
+	Domain  string // MAILGUN_DOMAIN, e.g. sandboxxxxx.mailgun.org
+	BaseURL string // MAILGUN_BASE_URL, e.g. https://api.mailgun.net (or EU base)
+	From    string // EMAIL_FROM, e.g. "FeedbackApp <postmaster@sandboxxxxx.mailgun.org>"
 }
 
-// SendLoginLink sends an email with the magic link to the user via Resend.
+// SendLoginLink sends an email with the magic link to the user via Mailgun.
 func SendLoginLink(cfg MailConfig, toEmail, deeplinkURL, rawToken string) error {
-	if cfg.APIKey == "" {
-		return fmt.Errorf("RESEND_API_KEY is required")
+	if cfg.APIKey == "" || cfg.Domain == "" || cfg.BaseURL == "" || cfg.From == "" {
+		return fmt.Errorf("mailgun config missing")
 	}
-	if cfg.From == "" {
-		return fmt.Errorf("EMAIL_FROM is required")
+	if toEmail == "" {
+		return fmt.Errorf("toEmail is required")
+	}
+	if deeplinkURL == "" {
+		return fmt.Errorf("deeplinkURL is required")
+	}
+	if rawToken == "" {
+		return fmt.Errorf("rawToken is required")
 	}
 
-	// deeplinkURL MUST be HTTPS, e.g. https://api.yourdomain.com/auth/deeplink
-	link := fmt.Sprintf("%s?token=%s", deeplinkURL, rawToken)
+	// deeplinkURL MUST be HTTPS, e.g. https://api.yourapp.com/auth/deeplink
+	link := fmt.Sprintf("%s?token=%s", strings.TrimRight(deeplinkURL, "/"), url.QueryEscape(rawToken))
 
 	textBody := fmt.Sprintf(
 		"Click the link below to log in:\n\n%s\n\nThis link expires in 15 minutes.",
@@ -44,22 +56,36 @@ func SendLoginLink(cfg MailConfig, toEmail, deeplinkURL, rawToken string) error 
 		</div>
 	`, link, link)
 
-	client := resend.NewClient(cfg.APIKey)
+	form := url.Values{}
+	form.Set("from", cfg.From)
+	form.Set("to", toEmail)
+	form.Set("subject", "Your login link for FeedbackApp")
+	form.Set("text", textBody)
+	form.Set("html", htmlBody)
+
+	endpoint := strings.TrimRight(cfg.BaseURL, "/") + "/v3/" + cfg.Domain + "/messages"
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	params := &resend.SendEmailRequest{
-		From:    cfg.From,
-		To:      []string{toEmail},
-		Subject: "Your login link for FeedbackApp",
-		Text:    textBody,
-		Html:    htmlBody,
-	}
-
-	_, err := client.Emails.SendWithContext(ctx, params)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
-		return fmt.Errorf("failed to send email via resend: %w", err)
+		return fmt.Errorf("mailgun request build failed: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	// Basic auth: username "api", password API key
+	auth := base64.StdEncoding.EncodeToString([]byte("api:" + cfg.APIKey))
+	req.Header.Set("Authorization", "Basic "+auth)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("mailgun send failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("mailgun send failed: status=%d", resp.StatusCode)
 	}
 
 	return nil
