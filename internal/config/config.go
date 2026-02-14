@@ -11,8 +11,10 @@ type Config struct {
 	JWTSecret      string
 	AppDeeplinkURL string
 
-	ResendAPIKey string
-	EmailFrom    string
+	MailgunAPIKey  string
+	MailgunDomain  string
+	MailgunBaseURL string
+	EmailFrom      string
 }
 
 func Load() (Config, error) {
@@ -21,14 +23,22 @@ func Load() (Config, error) {
 		port = "8080"
 	}
 
+	// Default to US API base if not set
+	mailgunBaseURL := os.Getenv("MAILGUN_BASE_URL")
+	if mailgunBaseURL == "" {
+		mailgunBaseURL = "https://api.mailgun.net"
+	}
+
 	cfg := Config{
 		Port:           port,
 		DatabaseURL:    mustEnv("DATABASE_URL"),
 		JWTSecret:      mustEnv("JWT_SECRET"),
 		AppDeeplinkURL: mustEnv("APP_DEEPLINK_URL"),
 
-		ResendAPIKey: mustEnv("RESEND_API_KEY"),
-		EmailFrom:    mustEnv("EMAIL_FROM"),
+		MailgunAPIKey:  mustEnv("MAILGUN_API_KEY"),
+		MailgunDomain:  mustEnv("MAILGUN_DOMAIN"), // e.g. sandboxXXXX.mailgun.org
+		MailgunBaseURL: mailgunBaseURL,
+		EmailFrom:      mustEnv("EMAIL_FROM"),
 	}
 
 	return cfg, nil
