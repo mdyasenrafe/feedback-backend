@@ -55,6 +55,7 @@ func (s *Service) RequestLoginLink(ctx context.Context, email string) error {
 
 	// Send email (do NOT log raw token)
 	if err := SendLoginLink(s.mailConfig, normalizedEmail, s.deeplinkURL, rawToken); err != nil {
+		fmt.Printf("SendLoginLink error: %v\n", err)
 		return fmt.Errorf("email_send_failed: %w", err)
 	}
 

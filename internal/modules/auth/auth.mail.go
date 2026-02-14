@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,7 +12,6 @@ import (
 )
 
 // MailConfig is used by SendLoginLink (Mailgun).
-// NOTE: This replaces the previous Resend-only config.
 type MailConfig struct {
 	APIKey  string // MAILGUN_API_KEY
 	Domain  string // MAILGUN_DOMAIN, e.g. sandboxxxxx.mailgun.org
@@ -34,7 +34,8 @@ func SendLoginLink(cfg MailConfig, toEmail, deeplinkURL, rawToken string) error 
 		return fmt.Errorf("rawToken is required")
 	}
 
-	// deeplinkURL MUST be HTTPS, e.g. https://api.yourapp.com/auth/deeplink
+	// deeplinkURL should be an HTTPS (or http in local dev) endpoint that serves /auth/deeplink
+	// e.g. https://your-api.onrender.com/auth/deeplink
 	link := fmt.Sprintf("%s?token=%s", strings.TrimRight(deeplinkURL, "/"), url.QueryEscape(rawToken))
 
 	textBody := fmt.Sprintf(
@@ -75,8 +76,8 @@ func SendLoginLink(cfg MailConfig, toEmail, deeplinkURL, rawToken string) error 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	// Basic auth: username "api", password API key
-	auth := base64.StdEncoding.EncodeToString([]byte("api:" + cfg.APIKey))
-	req.Header.Set("Authorization", "Basic "+auth)
+	authHeader := base64.StdEncoding.EncodeToString([]byte("api:" + cfg.APIKey))
+	req.Header.Set("Authorization", "Basic "+authHeader)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -84,8 +85,10 @@ func SendLoginLink(cfg MailConfig, toEmail, deeplinkURL, rawToken string) error 
 	}
 	defer resp.Body.Close()
 
+	bodyBytes, _ := io.ReadAll(resp.Body)
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("mailgun send failed: status=%d", resp.StatusCode)
+		return fmt.Errorf("mailgun send failed: status=%d body=%s", resp.StatusCode, string(bodyBytes))
 	}
 
 	return nil
